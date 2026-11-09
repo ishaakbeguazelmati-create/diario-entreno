@@ -155,6 +155,20 @@ textarea{resize:vertical;min-height:84px}
 .optbox{border:1px solid var(--line);border-radius:12px;padding:10px;margin-top:12px}
 .optbox>.irow3 b{flex:1;font-family:var(--display);font-size:18px;text-transform:uppercase;letter-spacing:.02em}
 .rest[hidden]{display:none!important}
+input[data-pk]{cursor:pointer;caret-color:transparent}
+.pk{position:fixed;inset:0;z-index:40;display:flex;align-items:flex-end;justify-content:center;background:rgba(0,0,0,.45)}
+.pk[hidden]{display:none!important}
+.pks{width:100%;max-width:560px;background:var(--surface,#fff);border-radius:18px 18px 0 0;padding:14px 16px calc(16px + env(safe-area-inset-bottom,0px));box-shadow:0 -8px 30px rgba(0,0,0,.25)}
+.pkt{font-family:'Barlow Condensed',sans-serif;font-weight:700;font-size:20px;text-transform:uppercase;margin-bottom:2px}
+.pkh{font-size:13px;color:var(--muted);margin-bottom:10px}
+.pkw{display:grid;grid-template-columns:1fr 1fr;gap:10px;position:relative}
+.pkc{text-align:center;font-size:13px;color:var(--muted)}
+.wheel{position:relative;height:220px;overflow-y:scroll;scroll-snap-type:y mandatory;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;padding:88px 0;background:var(--surface2,#f0ece4);border-radius:12px;scrollbar-width:none;touch-action:pan-y}
+.wheel::-webkit-scrollbar{display:none}
+.wi.sel{color:var(--fg);font-size:28px}
+.wi{height:44px;line-height:44px;text-align:center;font-size:24px;font-weight:600;scroll-snap-align:center;color:var(--muted)}
+.pkband{position:absolute;left:0;right:0;top:88px;height:44px;border-top:2px solid var(--gold);border-bottom:2px solid var(--gold);pointer-events:none;border-radius:6px}
+.pkbtns{display:grid;grid-template-columns:auto 1fr;gap:10px;margin-top:14px}
 .rest{position:fixed;z-index:15;left:max(16px,env(safe-area-inset-left,0px));right:max(16px,env(safe-area-inset-right,0px));bottom:calc(66px + env(safe-area-inset-bottom,0px));max-width:560px;margin:0 auto;display:flex;justify-content:flex-end}
 .rest.run{display:block;background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px;box-shadow:0 6px 20px rgba(0,0,0,.35)}
 .rest.run.ok{border-color:var(--up)}
@@ -235,6 +249,7 @@ nav button.on{color:var(--gold)}
 <div id="app"><div class="top"><div><h1>Diario de Entreno</h1><div class="sub">Cargando tu plan…</div></div></div></div>
 <nav id="nav"></nav>
 <div id="rest" class="rest" hidden></div>
+<div id="pick" class="pk" hidden></div>
 <div id="toast" class="toast" hidden></div>
 
 <script>
@@ -744,9 +759,9 @@ function viewEntreno(){
       const ps=prev&&prev.sets[j];
       const cc=setCmp(s,ps);const tgt=ex.setReps[j]||ex.reps;
       h+=`<div class="sw"><div class="srow"><span class="s">S${j+1}</span>
-      <input class="num ${cc}" id="r_${ex.id}_${j}" data-f="set:${ex.id}:${j}:r" inputmode="numeric" pattern="[0-9]*" placeholder="${ps&&ps.r?ps.r:'reps'}" value="${esc(s.r||'')}" aria-label="Repeticiones serie ${j+1}">
+      <input class="num ${cc}" id="r_${ex.id}_${j}" data-f="set:${ex.id}:${j}:r" data-pk="1" readonly inputmode="numeric" pattern="[0-9]*" placeholder="${ps&&ps.r?ps.r:'reps'}" value="${esc(s.r||'')}" aria-label="Repeticiones serie ${j+1}">
       <span class="x">×</span>
-      <input class="num ${cc}" id="k_${ex.id}_${j}" data-f="set:${ex.id}:${j}:k" inputmode="decimal" placeholder="${ps&&ps.k?ps.k:'kg'}" value="${esc(s.k||'')}" aria-label="Kilos serie ${j+1}">
+      <input class="num ${cc}" id="k_${ex.id}_${j}" data-f="set:${ex.id}:${j}:k" data-pk="1" readonly inputmode="decimal" placeholder="${ps&&ps.k?ps.k:'kg'}" value="${esc(s.k||'')}" aria-label="Kilos serie ${j+1}">
       <button class="tagbtn ${s.t?'on':''} ${ex.tags[j]?'plan':''}" data-a="tag" data-e="${ex.id}" data-i="${j}" aria-label="Tipo de serie">${s.t||'—'}</button></div><div class="lastl"><span class="tgt">Objetivo: ${tgt} reps</span>${ps&&(ps.r||ps.k)?`<span>Última vez: <b>${ps.r||'?'} reps × ${ps.k||'0'} kg</b>${isUni(ex.id)?' por lado':''}${ps.t?' ('+ps.t+')':''}</span>`:(prev?'':'<span>Sin registro previo</span>')}</div></div>`;
     });
     h+=noteHtml(ex.id,date);
@@ -1132,6 +1147,50 @@ document.addEventListener('click',e=>{
   }
   render();
 });
+
+/* ---- selector de repeticiones y kilos (arrastrar) ---- */
+let PK=null;
+const PKIH=44;
+function pkVals(kind){const a=[];if(kind==='r'){for(let i=0;i<=60;i++)a.push(i)}else{for(let i=0;i<=600;i++)a.push(i/2)}return a}
+function openPick(inp){
+  const q=inp.dataset.f.split(':');const ex=EXBY[q[1]];if(!ex)return;const j=+q[2];
+  const date=S.ui.date;const d=D(date);const sets=d.sets[ex.id]||exSets(ex,date);
+  const prev=prevSession(ex.id,date);const ps=prev&&prev.sets[j];const cur=sets[j]||{};const bef=j>0?sets[j-1]||{}:{};
+  const pick=(...v)=>{for(const x of v){if(x!=null&&String(x)!=='')return num(x)}return 0};
+  const r0=pick(cur.r,ps&&ps.r,bef.r,10),k0=pick(cur.k,ps&&ps.k,bef.k,0);
+  PK={ex:ex.id,j,r:document.getElementById('r_'+ex.id+'_'+j),k:document.getElementById('k_'+ex.id+'_'+j),focus:q[3]};
+  const R=pkVals('r'),K=pkVals('k');
+  const el=document.getElementById('pick');
+  const col=(id,arr,fmt)=>`<div class="wheel" id="${id}">${arr.map(v=>`<div class="wi">${fmt(v)}</div>`).join('')}</div>`;
+  el.innerHTML=`<div class="pks"><div class="pkt">${esc(ex.name)} · Serie ${j+1}</div><div class="pkh">Arrastra y suelta. ${ps&&(ps.r||ps.k)?'Última vez: '+(ps.r||'?')+' reps × '+(ps.k||'0')+' kg':''}</div><div class="pkw"><div style="position:relative"><div class="pkc">Repeticiones</div>${col('wr',R,v=>v)}<div class="pkband" style="top:calc(18px + 88px)"></div></div><div style="position:relative"><div class="pkc">Kilos${isUni(ex.id)?' (por lado)':''}</div>${col('wk',K,v=>fmtN(v))}<div class="pkband" style="top:calc(18px + 88px)"></div></div></div><div class="pkbtns"><button class="btn" data-a="pickkb">Teclado</button><button class="btn primary" data-a="pickok">Listo</button></div></div>`;
+  el.hidden=false;
+  ['wr','wk'].forEach(id=>{const w=document.getElementById(id);let last=-1;const mark=()=>{const i=Math.round(w.scrollTop/PKIH);if(i===last)return;last=i;const it=w.children;for(let n=0;n<it.length;n++)it[n].classList.toggle('sel',n===i)};w.addEventListener('scroll',mark,{passive:true});w._mark=mark});
+  document.getElementById('wr').scrollTop=R.indexOf(Math.min(60,r0))*PKIH;
+  document.getElementById('wk').scrollTop=Math.max(0,K.indexOf(Math.min(300,Math.round(k0*2)/2)))*PKIH;
+  document.getElementById('wr')._mark();document.getElementById('wk')._mark();
+}
+function closePick(){const el=document.getElementById('pick');if(el){el.hidden=true;el.innerHTML=''}PK=null}
+function applyPick(){
+  if(!PK)return;
+  const wr=document.getElementById('wr'),wk=document.getElementById('wk');
+  const r=Math.min(60,Math.max(0,Math.round(wr.scrollTop/PKIH)));
+  const k=Math.min(300,Math.max(0,Math.round(wk.scrollTop/PKIH)/2));
+  const {r:ri,k:ki}=PK;closePick();
+  if(!ri||!ki)return;
+  ri.value=r?String(r):'';ri.dispatchEvent(new Event('input',{bubbles:true}));
+  ki.value=k?fmtN(k):'';ki.dispatchEvent(new Event('input',{bubbles:true}));
+  ki.dispatchEvent(new Event('change',{bubbles:true}));
+}
+document.addEventListener('click',e=>{
+  const t=e.target;if(!t||!t.closest)return;
+  const i=t.closest('input[data-pk]');
+  if(i&&i.readOnly){e.preventDefault();i.blur();openPick(i);return}
+  if(t.id==='pick'){closePick();return}
+  const b=t.closest('[data-a]');
+  if(b&&b.dataset.a==='pickok'){applyPick();return}
+  if(b&&b.dataset.a==='pickkb'){const p=PK;closePick();if(p){const x=p.focus==='k'?p.k:p.r;if(x){x.readOnly=false;x.removeAttribute('data-pk');x.focus()}}return}
+});
+
 document.addEventListener('input',e=>{
   const el=e.target;const f=el.dataset&&el.dataset.f;if(!f)return;
   const p=f.split(':');const date=S.ui.date;
