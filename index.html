@@ -736,7 +736,7 @@ function viewHoy(){
       oi.forEach((x,i)=>{h+=`<div class="irow"><span class="in">${esc(foodName(x.f))}</span><input class="num" type="number" inputmode="decimal" min="0" step="any" id="og_${m.k}_${i}" data-f="oit:${m.k}:${i}" value="${esc(x.g)}" aria-label="Gramos de ${esc(foodName(x.f))}"><span class="muted small">g</span><span></span><button class="sq2" data-a="oitdel" data-m="${m.k}" data-i="${i}" aria-label="Quitar">✕</button></div>`});
       h+=`<div class="irow add">${foodSel(`id="addof_${m.k}" aria-label="Alimento que comiste"`,'')}<input class="num" type="number" inputmode="decimal" step="any" min="0" id="addog_${m.k}" placeholder="g" aria-label="Gramos"><button class="btn" data-a="oitadd" data-m="${m.k}">Añadir</button></div>`;
       h+=`<div class="mline" id="oline_${m.k}">${otherLine(e)}</div>`;
-      h+=`<details class="manualbox"${(num(e.kc)||num(e.mp)||num(e.mc)||num(e.mf))?' open':''}><summary>Algo que no está en la biblioteca: poner kcal y macros a mano</summary><div class="manual">${[['kc','kcal'],['mp','Prot. g'],['mc','Carb. g'],['mf','Grasa g']].map(([f,l])=>`<label>${l}<input class="num" type="number" inputmode="decimal" min="0" id="mac_${m.k}_${f}" data-f="mac:${m.k}:${f}" value="${esc(e[f]==null?'':e[f])}"></label>`).join('')}</div></details>`;
+      h+=`<details class="manualbox"${(num(e.kc)||num(e.mp)||num(e.mc)||num(e.mf))?' open':''}><summary>Algo que no está en la biblioteca: añadirlo con sus macros</summary><div class="muted small" style="margin:6px 0">Pon lo que pone la etiqueta o tu app para la cantidad total que comiste. Se guarda en tu biblioteca y puedes cambiar los gramos después.</div><div class="row2"><label class="mf">Nombre<input type="text" id="oname_${m.k}" value="${esc(e.note||'')}" placeholder="Ej. Yogur no bolitas" autocomplete="off"></label><label class="mf">Gramos en total<input class="num" type="number" inputmode="decimal" min="0" step="any" id="otot_${m.k}" placeholder="g"></label></div><div class="manual">${[['kc','kcal'],['mp','Prot. g'],['mc','Carb. g'],['mf','Grasa g']].map(([f,l])=>`<label>${l}<input class="num" type="number" inputmode="decimal" min="0" id="mac_${m.k}_${f}" data-f="mac:${m.k}:${f}" value="${esc(e[f]==null?'':e[f])}"></label>`).join('')}</div><div style="margin-top:10px"><button class="btn primary" data-a="oitsave" data-m="${m.k}">Guardar en mi biblioteca y añadir</button></div><div class="muted small" style="margin-top:6px">Si no pones los gramos, solo se cuentan esos macros hoy, sin guardarlos en la biblioteca.</div></details>`;
     }
     h+='</div>';
   });
@@ -1157,6 +1157,20 @@ document.addEventListener('click',e=>{
     case 'alim':S.ui.tab='alim';render();window.scrollTo(0,0);return;
     case 'edit':S.ui.edit=S.ui.edit===el.dataset.m?null:el.dataset.m;S.ui.mv=null;break;
     case 'oitadd':{const k=el.dataset.m;const g=num((document.getElementById('addog_'+k)||{}).value);const f=(document.getElementById('addof_'+k)||{}).value;if(g>0&&f){const m=D(date).meals;const e=(m[k]=m[k]||{});e.oitems=otherItems(e).slice();const ex=e.oitems.find(x=>x.f===f);if(ex)ex.g=Math.round((num(ex.g)+g)*10)/10;else e.oitems.push({f,g});touch('day_'+date)}else{toast('Elige un alimento y pon los gramos');return}break}
+    case 'oitsave':{
+      const k=el.dataset.m;const m=D(date).meals;const e=(m[k]=m[k]||{});
+      const n=((document.getElementById('oname_'+k)||{}).value||'').trim();
+      const g=num((document.getElementById('otot_'+k)||{}).value);
+      const v=[num(e.kc),num(e.mp),num(e.mc),num(e.mf)];
+      if(!n){toast('Pon el nombre de lo que comiste');return}
+      if(!(g>0)){toast('Pon los gramos en total');return}
+      if(!v.some(x=>x>0)){toast('Pon las kcal y los macros');return}
+      const p=x=>String(Math.round(x/g*1000)/10);
+      const key='u'+Date.now();
+      S.foods=S.foods||{};S.foods[key]={n,k:p(v[0]),p:p(v[1]),c:p(v[2]),f:p(v[3]),v:1,custom:1};
+      e.oitems=otherItems(e).slice();e.oitems.push({f:key,g});
+      e.kc=e.mp=e.mc=e.mf='';
+      touch('foods');touch('day_'+date);toast('Guardado en tu biblioteca: '+n);break}
     case 'oitdel':{const e=D(date).meals[el.dataset.m];if(e&&e.oitems){e.oitems.splice(+el.dataset.i,1);touch('day_'+date)}break}
     case 'itmdel':{const e=ensureItems(el.dataset.m,date);e.items.splice(+el.dataset.i,1);S.ui.mv=null;touch('day_'+date);break}
     case 'itmadd':{const k=el.dataset.m;const g=num((document.getElementById('addg_'+k)||{}).value);const f=(document.getElementById('addf_'+k)||{}).value;if(g>0&&f){const e=ensureItems(k,date);const ex=e.items.find(x=>x.f===f);if(ex)ex.g=Math.round((num(ex.g)+g)*10)/10;else e.items.push({f,g});touch('day_'+date)}else{toast('Elige un alimento y pon los gramos');return}break}
