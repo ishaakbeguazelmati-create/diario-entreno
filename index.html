@@ -211,6 +211,15 @@ input[data-pk]{cursor:pointer;caret-color:transparent}
 .key{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px;font-size:12px;color:var(--muted)}
 .key span{display:inline-flex;align-items:center;gap:6px}
 /* progreso */
+.manualbox{margin-top:10px;font-size:13px;color:var(--muted)}
+.manualbox summary{cursor:pointer;padding:6px 0}
+.mrow{margin-top:12px}
+.mh{display:flex;justify-content:space-between;align-items:baseline;font-size:15px}
+.mh span{font-variant-numeric:tabular-nums;color:var(--muted)}
+.mrow .sumbar{margin:6px 0 4px}
+.mf2{font-size:12px;color:var(--muted)}
+.ovr{color:var(--down)!important;font-weight:600}
+.ovbanner{background:var(--down);color:#fff;border-radius:10px;padding:9px 12px;font-weight:600;font-size:14px;margin-bottom:6px}
 .sumbar{display:flex;height:14px;border-radius:7px;overflow:hidden;background:var(--surface2);margin:10px 0 8px}
 .sumbar i{display:block;height:100%}
 .sumleg{display:flex;gap:14px;flex-wrap:wrap;font-size:14px}
@@ -436,18 +445,32 @@ function viewAlim(){
   return h;
 }
 function mealMac(m,e){const a=[0,0,0,0];mealItems(m,e||{}).forEach(it=>{const x=foodVals(it.f),q=num(it.g);for(let i=0;i<4;i++)a[i]+=x[i]*q/100});return a}
+function otherItems(e){return Array.isArray(e.oitems)?e.oitems:[]}
+function otherLine(e){const mm=otherMac(e);const g=otherItems(e).map(x=>x.g+' g '+foodName(x.f)).join(' + ');return (g?g+' → ':'')+r0(mm[0])+' kcal · P '+r0(mm[1])+' · C '+r0(mm[2])+' · G '+r0(mm[3])}
+function otherMac(e){const a=[0,0,0,0];otherItems(e).forEach(it=>{const x=foodVals(it.f),q=num(it.g);for(let i=0;i<4;i++)a[i]+=x[i]*q/100});a[0]+=num(e.kc);a[1]+=num(e.mp);a[2]+=num(e.mc);a[3]+=num(e.mf);return a}
 function dayMac(date){
   const d=D(date).meals;const eat=[0,0,0,0],plan=[0,0,0,0];
-  MEALS.forEach(m=>{const e=d[m.k]||{};const mm=mealMac(m,e);for(let i=0;i<4;i++)plan[i]+=mm[i];
-    if(e.st==='ok')for(let i=0;i<4;i++)eat[i]+=mm[i];
-    else if(e.st==='other'){eat[0]+=num(e.kc);eat[1]+=num(e.mp);eat[2]+=num(e.mc);eat[3]+=num(e.mf)}});
+  MEALS.forEach(m=>{const e=d[m.k]||{};
+    const base=mealMac(m,{opt:e.opt,pick:e.pick});for(let i=0;i<4;i++)plan[i]+=base[i];
+    if(e.st==='ok'){const mm=mealMac(m,e);for(let i=0;i<4;i++)eat[i]+=mm[i]}
+    else if(e.st==='other'){const mm=otherMac(e);for(let i=0;i<4;i++)eat[i]+=mm[i]}});
   return {eat,plan};
 }
 const r0=n=>Math.round(n);
 function macSummary(date){
-  const {eat,plan}=dayMac(date);const pct=plan[0]?Math.min(100,eat[0]/plan[0]*100):0;
-  return `<h3>Macros de hoy</h3><div class="macs"><div><b>${r0(eat[0])}</b><span>kcal</span></div><div><b>${r0(eat[1])}</b><span>proteína g</span></div><div><b>${r0(eat[2])}</b><span>carbohid. g</span></div><div><b>${r0(eat[3])}</b><span>grasa g</span></div></div><div class="sumbar"><i style="width:${pct}%;background:var(--gold)"></i></div><div class="muted small">Plan completo del día: ${r0(plan[0])} kcal · P ${r0(plan[1])} · C ${r0(plan[2])} · G ${r0(plan[3])}</div><div class="muted small" style="margin-top:4px">Cuenta lo que marcas como comido. No incluye suplementos. Lo que no tiene tus valores usa una media aproximada.</div><div><button class="linkbtn" data-a="alim">Mis alimentos (valores de tus etiquetas)</button></div>`;
+  const {eat,plan}=dayMac(date);
+  const rows=[['Calorías','kcal'],['Proteína','g'],['Carbohidratos','g'],['Grasa','g']];
+  const over=[];let h='<h3>Macros de hoy</h3>';
+  rows.forEach(([n,u],i)=>{
+    const e=r0(eat[i]),p=r0(plan[i]),ov=e>p&&p>0,pct=p?Math.min(100,e/p*100):0;
+    if(ov)over.push(n.toLowerCase());
+    h+=`<div class="mrow"><div class="mh"><b>${n}</b><span class="${ov?'ovr':''}">${e} / ${p} ${u}</span></div><div class="sumbar"><i style="width:${pct}%;background:${ov?'var(--down)':'var(--gold)'}"></i></div><div class="mf2 ${ov?'ovr':''}">${ov?'Te pasas '+(e-p)+' '+u:p?'Faltan '+(p-e)+' '+u:''}</div></div>`;
+  });
+  if(over.length)h=`<div class="ovbanner">Te has pasado en: ${over.join(', ')}</div>`+h;
+  h+=`<div class="muted small" style="margin-top:14px">El objetivo es tu plan completo del día, con los valores de tu biblioteca de alimentos. Cuenta lo que marcas como comido. No incluye suplementos.${eatApprox(date)?' Hay alimentos con valores aproximados.':''} <button class="linkbtn" data-a="alim">Mis alimentos (valores de tus etiquetas)</button></div>`;
+  return h;
 }
+function eatApprox(date){const d=D(date).meals;return MEALS.some(m=>{const e=d[m.k]||{};if(e.st==='ok')return approxOf(m,e);if(e.st==='other')return otherItems(e).some(x=>{const o=foodObj(x.f);return !o||!o.v});return false})}
 const SUPP=[
  {g:'Con la comida 1',train:false,items:[['om','Omega 3'],['dk','D3 + K2'],['mv','Multivitamínico'],['b12','Vitamina B12','hasta que se termine']]},
  {g:'Pre-cama (después de cenar o antes de dormir)',train:false,items:[['ash','Ashwagandha'],['gel','Gelatina cero','opcional']]},
@@ -511,6 +534,9 @@ async function writeDoc(key){
   try{localStorage.setItem('diario_state',JSON.stringify({cfg:S.cfg,foods:S.foods,plan:planSnapshot(),days:S.days,weeks:S.weeks}))}catch(e){}
 }
 const busy=key=>!!timers[key]||false;
+function flushLocal(){try{if(mode!=='cloud')localStorage.setItem('diario_state',JSON.stringify({cfg:S.cfg,foods:S.foods,plan:planSnapshot(),days:S.days,weeks:S.weeks}))}catch(e){}}
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')flushLocal()});
+window.addEventListener('pagehide',flushLocal);
 function applyDoc(id,data){
   if(id==='cfg')S.cfg=data;
   else if(id==='foods')S.foods=data||{};
@@ -704,7 +730,14 @@ function viewHoy(){
     h+=editorHtml(m,e);
     if(m.note)h+=`<p class="muted small">${m.note}</p>`;
     h+=`<div class="btns"><button class="btn ok ${e.st==='ok'?'on':''}" data-a="meal" data-m="${m.k}" data-s="ok">✓ Lo comí</button><button class="btn no ${e.st==='other'?'on':''}" data-a="meal" data-m="${m.k}" data-s="other">Comí otra cosa</button></div>`;
-    if(e.st==='other')h+=`<div class="note"><input type="text" id="note_${m.k}" data-f="note:${m.k}" value="${esc(e.note||'')}" placeholder="¿Qué comiste?" autocomplete="off"></div><div class="manual">${[['kc','kcal'],['mp','Prot. g'],['mc','Carb. g'],['mf','Grasa g']].map(([f,l])=>`<label>${l}<input class="num" type="number" inputmode="decimal" min="0" id="mac_${m.k}_${f}" data-f="mac:${m.k}:${f}" value="${esc(e[f]==null?'':e[f])}"></label>`).join('')}</div>`;
+    if(e.st==='other'){
+      const oi=otherItems(e);
+      h+=`<div class="note"><input type="text" id="note_${m.k}" data-f="note:${m.k}" value="${esc(e.note||'')}" placeholder="¿Qué comiste? (nota)" autocomplete="off"></div>`;
+      oi.forEach((x,i)=>{h+=`<div class="irow"><span class="in">${esc(foodName(x.f))}</span><input class="num" type="number" inputmode="decimal" min="0" step="any" id="og_${m.k}_${i}" data-f="oit:${m.k}:${i}" value="${esc(x.g)}" aria-label="Gramos de ${esc(foodName(x.f))}"><span class="muted small">g</span><span></span><button class="sq2" data-a="oitdel" data-m="${m.k}" data-i="${i}" aria-label="Quitar">✕</button></div>`});
+      h+=`<div class="irow add">${foodSel(`id="addof_${m.k}" aria-label="Alimento que comiste"`,'')}<input class="num" type="number" inputmode="decimal" step="any" min="0" id="addog_${m.k}" placeholder="g" aria-label="Gramos"><button class="btn" data-a="oitadd" data-m="${m.k}">Añadir</button></div>`;
+      h+=`<div class="mline" id="oline_${m.k}">${otherLine(e)}</div>`;
+      h+=`<details class="manualbox"${(num(e.kc)||num(e.mp)||num(e.mc)||num(e.mf))?' open':''}><summary>Algo que no está en la biblioteca: poner kcal y macros a mano</summary><div class="manual">${[['kc','kcal'],['mp','Prot. g'],['mc','Carb. g'],['mf','Grasa g']].map(([f,l])=>`<label>${l}<input class="num" type="number" inputmode="decimal" min="0" id="mac_${m.k}_${f}" data-f="mac:${m.k}:${f}" value="${esc(e[f]==null?'':e[f])}"></label>`).join('')}</div></details>`;
+    }
     h+='</div>';
   });
   h+=`<button class="btn" data-a="plan" data-t="dieta" data-b="hoy" style="width:100%">Editar mi dieta</button></div>`;
@@ -1123,6 +1156,8 @@ document.addEventListener('click',e=>{
     case 'rauto':S.cfg={...cfg(),restAuto:cfg().restAuto===false};touch('cfg');renderRest();return;
     case 'alim':S.ui.tab='alim';render();window.scrollTo(0,0);return;
     case 'edit':S.ui.edit=S.ui.edit===el.dataset.m?null:el.dataset.m;S.ui.mv=null;break;
+    case 'oitadd':{const k=el.dataset.m;const g=num((document.getElementById('addog_'+k)||{}).value);const f=(document.getElementById('addof_'+k)||{}).value;if(g>0&&f){const m=D(date).meals;const e=(m[k]=m[k]||{});e.oitems=otherItems(e).slice();const ex=e.oitems.find(x=>x.f===f);if(ex)ex.g=Math.round((num(ex.g)+g)*10)/10;else e.oitems.push({f,g});touch('day_'+date)}else{toast('Elige un alimento y pon los gramos');return}break}
+    case 'oitdel':{const e=D(date).meals[el.dataset.m];if(e&&e.oitems){e.oitems.splice(+el.dataset.i,1);touch('day_'+date)}break}
     case 'itmdel':{const e=ensureItems(el.dataset.m,date);e.items.splice(+el.dataset.i,1);S.ui.mv=null;touch('day_'+date);break}
     case 'itmadd':{const k=el.dataset.m;const g=num((document.getElementById('addg_'+k)||{}).value);const f=(document.getElementById('addf_'+k)||{}).value;if(g>0&&f){const e=ensureItems(k,date);const ex=e.items.find(x=>x.f===f);if(ex)ex.g=Math.round((num(ex.g)+g)*10)/10;else e.items.push({f,g});touch('day_'+date)}else{toast('Elige un alimento y pon los gramos');return}break}
     case 'itmreset':{const e=(D(date).meals[el.dataset.m]=D(date).meals[el.dataset.m]||{});e.items=null;S.ui.mv=null;touch('day_'+date);break}
@@ -1203,7 +1238,8 @@ document.addEventListener('input',e=>{
   else if(p[0]==='itm'){const e=ensureItems(p[1],date);e.items[+p[2]].g=el.value;touch('day_'+date);liveMac(p[1],date)}
   else if(p[0]==='food'){const o=foodObj(p[1]);if(!o)return;const cur=S.foods[p[1]]||{n:o.n,k:o.k,p:o.p,c:o.c,f:o.f};const n={...cur,v:1};n[p[2]]=el.value;S.foods=S.foods||{};S.foods[p[1]]=n;touch('foods')}
   else if(p[0]==='fsearch'){const q=el.value.trim().toLowerCase();document.querySelectorAll('[data-fn]').forEach(c=>{c.hidden=q&&!c.dataset.fn.includes(q)})}
-  else if(p[0]==='mac'){const m=D(date).meals;(m[p[1]]=m[p[1]]||{})[p[2]]=el.value;touch('day_'+date);const ms=document.getElementById('macsum');if(ms)ms.innerHTML=macSummary(date)}
+  else if(p[0]==='oit'){const e=D(date).meals[p[1]];if(e&&e.oitems&&e.oitems[+p[2]]){e.oitems[+p[2]].g=el.value;touch('day_'+date);const l=document.getElementById('oline_'+p[1]);if(l)l.textContent=otherLine(e);const ms=document.getElementById('macsum');if(ms)ms.innerHTML=macSummary(date)}}
+  else if(p[0]==='mac'){const m=D(date).meals;(m[p[1]]=m[p[1]]||{})[p[2]]=el.value;touch('day_'+date);{const l=document.getElementById('oline_'+p[1]);if(l)l.textContent=otherLine(m[p[1]])}const ms=document.getElementById('macsum');if(ms)ms.innerHTML=macSummary(date)}
   else if(p[0]==='w'){const W=weekIdx(date);const w=S.weeks[W]=S.weeks[W]||{};
     w[p[1]]=el.value;
     touch('week_'+W)}
