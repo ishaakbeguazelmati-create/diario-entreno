@@ -211,6 +211,17 @@ input[data-pk]{cursor:pointer;caret-color:transparent}
 .key{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px;font-size:12px;color:var(--muted)}
 .key span{display:inline-flex;align-items:center;gap:6px}
 /* progreso */
+.acc{margin-top:18px}
+.acc>summary{list-style:none;cursor:pointer;display:flex;justify-content:space-between;align-items:center;padding:4px 0}
+.acc>summary::-webkit-details-marker{display:none}
+.acc>summary h2{margin:0}
+.acc>summary::after{content:'▾';color:var(--muted);font-size:18px}
+.acc[open]>summary::after{content:'▴'}
+.acc>.card{margin-top:10px}
+.minirow{display:flex;justify-content:space-between;align-items:center;gap:10px}
+.mini .btn{width:auto;padding:8px 16px;min-height:0}
+.notebtn{border:1px solid var(--line);background:var(--surface2);color:var(--muted);border-radius:10px;width:38px;height:38px;font-size:18px;flex:none;margin-left:8px}
+.notebtn.on{border-color:var(--gold);color:var(--gold)}
 .manualbox{margin-top:10px;font-size:13px;color:var(--muted)}
 .manualbox summary{cursor:pointer;padding:6px 0}
 .mrow{margin-top:12px}
@@ -349,7 +360,7 @@ function liveMac(k,date){const m=MEALS.find(z=>z.k===k);const e=D(date).meals[k]
 function editorHtml(m,e){
   if(m.k==='ayu')return '';
   const open=S.ui.edit===m.k;
-  let h=`<button class="linkbtn" data-a="edit" data-m="${m.k}">${open?'Cerrar ajustes':'Ajustar ingredientes de hoy'}</button>`;
+  let h=`<button class="linkbtn" data-a="edit" data-m="${m.k}">${open?'Cerrar ajustes':'Ajustar gramos de hoy'}</button>`;
   if(!open)return h;
   h+='<div class="editor">';
   mealItems(m,e).forEach((x,i)=>{
@@ -467,7 +478,7 @@ function macSummary(date){
     h+=`<div class="mrow"><div class="mh"><b>${n}</b><span class="${ov?'ovr':''}">${e} / ${p} ${u}</span></div><div class="sumbar"><i style="width:${pct}%;background:${ov?'var(--down)':'var(--gold)'}"></i></div><div class="mf2 ${ov?'ovr':''}">${ov?'Te pasas '+(e-p)+' '+u:p?'Faltan '+(p-e)+' '+u:''}</div></div>`;
   });
   if(over.length)h=`<div class="ovbanner">Te has pasado en: ${over.join(', ')}</div>`+h;
-  h+=`<div class="muted small" style="margin-top:14px">El objetivo es tu plan completo del día, con los valores de tu biblioteca de alimentos. Cuenta lo que marcas como comido. No incluye suplementos.${eatApprox(date)?' Hay alimentos con valores aproximados.':''} <button class="linkbtn" data-a="alim">Mis alimentos (valores de tus etiquetas)</button></div>`;
+  h+=`<div class="muted small" style="margin-top:14px">Objetivo = tu plan del día (cambia si editas tu biblioteca). Solo cuenta lo comido, sin suplementos.${eatApprox(date)?' Hay valores aproximados.':''} <button class="linkbtn" data-a="alim">Mis alimentos</button></div>`;
   return h;
 }
 function eatApprox(date){const d=D(date).meals;return MEALS.some(m=>{const e=d[m.k]||{};if(e.st==='ok')return approxOf(m,e);if(e.st==='other')return otherItems(e).some(x=>{const o=foodObj(x.f);return !o||!o.v});return false})}
@@ -603,7 +614,7 @@ function fmtDur(ms){const m=Math.max(1,Math.round(ms/60000));return m>=60?Math.f
 const hhmm=ms=>new Date(ms).toLocaleTimeString('es-ES',{hour:'2-digit',minute:'2-digit'});
 function sessionCard(date){
   const s=(S.days[date]||{}).session;
-  if(!s)return date===TODAY?`<div class="card sess"><div><div class="group" style="margin:0">Tiempo de entreno</div><div class="muted small">Pulsa al empezar y al terminar.</div></div><button class="btn primary" data-a="sstart">Empezar</button></div>`:'';
+  if(!s)return date===TODAY?`<div class="card sess"><div><div class="group" style="margin:0">Tiempo de entreno</div></div><button class="btn primary" data-a="sstart">Empezar</button></div>`:'';
   if(!s.end)return `<div class="card sess done"><div><div class="group" style="margin:0">Entrenando · empezaste a las ${hhmm(s.start)}</div><div class="clock" id="timer">${fmtClock(Date.now()-s.start)}</div></div><button class="btn primary" data-a="send">Terminar</button></div>`;
   return `<div class="card sess"><div><div class="group" style="margin:0">Entreno terminado</div><div>${hhmm(s.start)} → ${hhmm(s.end)} · <b>${fmtDur(s.end-s.start)}</b></div></div><button class="btn ghost" data-a="sreset">Borrar</button></div>`;
 }
@@ -639,7 +650,8 @@ function wake(on){try{if(on&&!WL&&navigator.wakeLock){navigator.wakeLock.request
 function lastNote(id,date){const ks=Object.keys(S.days).filter(k=>k<date&&S.days[k].notes&&S.days[k].notes[id]).sort();return ks.length?{date:ks[ks.length-1],t:S.days[ks[ks.length-1]].notes[id]}:null}
 function noteHtml(id,date){
   const d=S.days[date];const v=(d&&d.notes&&d.notes[id])||'';const ln=lastNote(id,date);
-  return (ln?`<div class="lastl" style="margin:10px 0 0">Nota de la última vez (${fmtShort(ln.date)}): <b>${esc(ln.t)}</b></div>`:'')+`<textarea id="xn_${id}" data-f="xnote:${id}" placeholder="Notas: dolor, ajuste de máquina, sensaciones…" rows="2" style="margin-top:8px;min-height:60px">${esc(v)}</textarea>`;
+  const ex=S.ui.nexp&&S.ui.nexp[id];const vis=ex===true||(v&&ex!==false);
+  return (ln?`<div class="lastl" style="margin:10px 0 0">Nota de la última vez (${fmtShort(ln.date)}): <b>${esc(ln.t)}</b></div>`:'')+(vis?`<textarea id="xn_${id}" data-f="xnote:${id}" placeholder="Notas: dolor, ajuste de máquina, sensaciones…" rows="2" style="margin-top:8px;min-height:60px">${esc(v)}</textarea>`:'');
 }
 const e1rm=s=>{const r=num(s.r),k=num(s.k);return k>0?k*(1+r/30):r};
 function prInfo(id,date){
@@ -721,6 +733,7 @@ function viewHoy(){
   h+=`<div class="sec"><h2>Dieta <small>${ds.ok}/${ds.total} comidas seguidas</small></h2><div class="card" id="macsum">${macSummary(date)}</div>`;
   MEALS.forEach(m=>{
     const e=d.meals[m.k]||{};const opt=e.opt||0;
+    if(e.st==='ok'&&!(S.ui.exp&&S.ui.exp[m.k])){h+=`<div class="card done mini"><div class="minirow"><div style="min-width:0"><h3 style="margin:0">${m.t} <span class="small muted" style="font-family:var(--body);text-transform:none;letter-spacing:0">Comido ✓</span></h3>${m.k!=='ayu'?`<div class="mline" id="mline_${m.k}">${mlineTxt(m,e)}</div>`:''}</div><button class="btn ghost" data-a="mexp" data-m="${m.k}">Ver</button></div></div>`;return}
     h+=`<div class="card ${e.st==='ok'?'done':e.st==='other'?'other':''}"><h3>${m.t}<span class="small muted" style="font-family:var(--body);text-transform:none;letter-spacing:0">${e.st==='ok'?'Comido ✓':e.st==='other'?'Otra cosa':''}</span></h3>`;
     if(m.opts.length>1)h+=`<div class="chips">${m.opts.map((o,i)=>`<button class="chip ${i===opt?'on':''}" data-a="opt" data-m="${m.k}" data-i="${i}">${esc(o.n)}</button>`).join('')}</div>`;
     h+=`<p>${e.items?esc(e.items.map(x=>x.g+' g '+foodName(x.f)).join(' + '))+' <span class="badge">AJUSTADO</span>':esc(optText(m.opts[opt]||m.opts[0]))}</p>`;
@@ -730,6 +743,7 @@ function viewHoy(){
     h+=editorHtml(m,e);
     if(m.note)h+=`<p class="muted small">${m.note}</p>`;
     h+=`<div class="btns"><button class="btn ok ${e.st==='ok'?'on':''}" data-a="meal" data-m="${m.k}" data-s="ok">✓ Lo comí</button><button class="btn no ${e.st==='other'?'on':''}" data-a="meal" data-m="${m.k}" data-s="other">Comí otra cosa</button></div>`;
+    if(e.st==='ok')h+=`<button class="linkbtn" data-a="mexp" data-m="${m.k}">Plegar</button>`;
     if(e.st==='other'){
       const oi=otherItems(e);
       h+=`<div class="note"><input type="text" id="note_${m.k}" data-f="note:${m.k}" value="${esc(e.note||'')}" placeholder="¿Qué comiste? (nota)" autocomplete="off"></div>`;
@@ -785,7 +799,8 @@ function viewEntreno(){
     const used=new Set(Object.values(ex.tags));if(ex.ss)used.add('SS');
     if(used.size)h+=`<div class="badges">${[...used].map(t=>`<span class="badge">${TAGS[t][0].toUpperCase()}</span>`).join('')}</div><div class="tagnote">${[...used].map(t=>TAGS[t][1]).join(' · ')}${ex.ss&&ex.ss!=='self'?' (con '+esc((EXBY[ex.ss]||{name:'otro ejercicio'}).name)+')':''}</div>`;
     if(ex.note)h+=`<div class="tagnote">${esc(ex.note)}</div>`;
-    h+=`</div>${c?`<span class="trend ${c.st}">${arrow(c.st)} ${c.w?(c.w>0?'+':'')+fmtN(c.w)+' kg':c.r?(c.r>0?'+':'')+fmtN(c.r)+' reps/serie':'igual'}</span>`:''}</div>`;
+    h+=`</div>${c?`<span class="trend ${c.st}">${arrow(c.st)} ${c.w?(c.w>0?'+':'')+fmtN(c.w)+' kg':c.r?(c.r>0?'+':'')+fmtN(c.r)+' reps/serie':'igual'}</span>`:''}<button class="notebtn ${(((S.days[date]||{}).notes||{})[ex.id])?'on':''}" data-a="nexp" data-e="${ex.id}" aria-label="Nota">✎</button></div>`;
+    if(!prev)h+=`<div class="prev"><span>Primera vez: aún no hay registro anterior</span></div>`;
     if(prev){const txt=prev.sets.filter(s=>s.r||s.k).map(s=>(s.t&&s.t!=='DS'?'':'')+(s.r||'?')+'×'+(s.k||'0')+(s.t?' '+s.t:'')).join(' · ');
       h+=`<div class="prev"><span>Última vez (${fmtShort(prev.date)}): ${esc(txt)}</span><button data-a="copy" data-e="${ex.id}">Copiar</button></div>`}
     sets.forEach((s,j)=>{
@@ -795,12 +810,12 @@ function viewEntreno(){
       <input class="num ${cc}" id="r_${ex.id}_${j}" data-f="set:${ex.id}:${j}:r" data-pk="1" readonly inputmode="numeric" pattern="[0-9]*" placeholder="${ps&&ps.r?ps.r:'reps'}" value="${esc(s.r||'')}" aria-label="Repeticiones serie ${j+1}">
       <span class="x">×</span>
       <input class="num ${cc}" id="k_${ex.id}_${j}" data-f="set:${ex.id}:${j}:k" data-pk="1" readonly inputmode="decimal" placeholder="${ps&&ps.k?ps.k:'kg'}" value="${esc(s.k||'')}" aria-label="Kilos serie ${j+1}">
-      <button class="tagbtn ${s.t?'on':''} ${ex.tags[j]?'plan':''}" data-a="tag" data-e="${ex.id}" data-i="${j}" aria-label="Tipo de serie">${s.t||'—'}</button></div><div class="lastl"><span class="tgt">Objetivo: ${tgt} reps</span>${ps&&(ps.r||ps.k)?`<span>Última vez: <b>${ps.r||'?'} reps × ${ps.k||'0'} kg</b>${isUni(ex.id)?' por lado':''}${ps.t?' ('+ps.t+')':''}</span>`:(prev?'':'<span>Sin registro previo</span>')}</div></div>`;
+      <button class="tagbtn ${s.t?'on':''} ${ex.tags[j]?'plan':''}" data-a="tag" data-e="${ex.id}" data-i="${j}" aria-label="Tipo de serie">${s.t||'—'}</button></div><div class="lastl"><span class="tgt">Objetivo: ${tgt} reps</span>${ps&&(ps.r||ps.k)?`<span>Última vez: <b>${ps.r||'?'} reps × ${ps.k||'0'} kg</b>${isUni(ex.id)?' por lado':''}${ps.t?' ('+ps.t+')':''}</span>`:''}</div></div>`;
     });
     h+=noteHtml(ex.id,date);
     h+=`<div class="sbtns"><button data-a="addset" data-e="${ex.id}">+ Serie</button><button data-a="addset" data-e="${ex.id}" data-t="DS">+ Drop set</button><button data-a="delset" data-e="${ex.id}" aria-label="Quitar última serie">− Quitar</button><button data-a="uni" data-e="${ex.id}" class="${isUni(ex.id)?'union':''}">Unilateral${isUni(ex.id)?' ✓':''}</button></div></div>`;
   });
-  h+=`<div class="card legend"><b>SS</b> superserie (dos ejercicios sin descanso) · <b>DS</b> drop set · <b>TS</b> top set · <b>BO</b> back off set. Descanso entre series: 1 minuto aprox. Toca el botón de la derecha de cada serie para cambiar su tipo. Verde: mejoras la última vez (más kg, o más reps con el mismo peso). Rojo: haces menos. Sin color: igual.</div><button class="btn" data-a="plan" data-t="rutina" data-b="entreno" style="width:100%">Editar mi rutina</button>`;
+  h+=`<button class="btn" data-a="plan" data-t="rutina" data-b="entreno" style="width:100%">Editar mi rutina</button>`;
   return h;
 }
 function viewCal(){
@@ -895,8 +910,20 @@ function viewSemana(){
   h+=`</div></div>`;
   h+=`<div class="sec"><h2>Ajustes</h2><div class="card"><div class="muted small">Pon el lunes en que empezó la semana 1. Con eso el calendario y los nombres de los archivos saben en qué semana estás.</div>
   <div class="row2"><div class="field"><label for="c_start">Lunes de la semana 1</label><input type="date" id="c_start" data-f="cfg:start" value="${c.start}"></div><div class="field"><label for="c_meso">Mesociclo nº</label><input class="num" type="number" id="c_meso" data-f="cfg:meso" min="1" max="99" value="${c.meso}"></div></div></div></div>`;
-  return h;
+  return accordion(h);
 }
+function accordion(h){
+  const parts=h.split('<div class="sec">');let out=parts[0];
+  for(let i=1;i<parts.length;i++){
+    const p=parts[i];const m=p.match(/^<h2>(.*?)<\/h2>/);if(!m){out+='<div class="sec">'+p;continue}
+    const key=m[1].toLowerCase().replace(/[^a-z]+/g,'');
+    const open=S.ui.acc&&key in S.ui.acc?S.ui.acc[key]:key==='medidascorporales';
+    const body=p.slice(m[0].length).replace(/<\/div><\/div>\s*$/,'</div></details>');
+    out+=`<details class="sec acc" data-acc="${key}"${open?' open':''}><summary><h2>${m[1]}</h2></summary>${body}`;
+  }
+  return out;
+}
+document.addEventListener('toggle',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.acc){S.ui.acc=S.ui.acc||{};S.ui.acc[t.dataset.acc]=t.open}},true);
 /* ============ EXCEL ============ */
 function setStr(sets){
   const out=[];
@@ -1109,7 +1136,9 @@ document.addEventListener('click',e=>{
   const a=el.dataset.a,date=S.ui.date;
   switch(a){
     case 'tab':go(el.dataset.t);return;
-    case 'date':S.ui.date=el.dataset.d;break;
+    case 'date':S.ui.date=el.dataset.d;S.ui.exp={};S.ui.nexp={};break;
+    case 'mexp':{S.ui.exp=S.ui.exp||{};S.ui.exp[el.dataset.m]=!S.ui.exp[el.dataset.m];break}
+    case 'nexp':{S.ui.nexp=S.ui.nexp||{};const id=el.dataset.e;const v=((((S.days[S.ui.date]||{}).notes)||{})[id]||'');const vis=S.ui.nexp[id]===true||(v&&S.ui.nexp[id]!==false);S.ui.nexp[id]=!vis;break}
     case 'calgo':S.ui.date=el.dataset.d;S.ui.tab='hoy';render();window.scrollTo(0,0);return;
     case 'mshift':{const [Y,M]=S.ui.month.split('-').map(Number);const d=new Date(Y,M-1+ +el.dataset.n,1);S.ui.month=d.getFullYear()+'-'+pad(d.getMonth()+1);break}
     case 'pshift':S.ui.pw=(S.ui.pw==null?weekIdx(TODAY):S.ui.pw)+ +el.dataset.n;break;
